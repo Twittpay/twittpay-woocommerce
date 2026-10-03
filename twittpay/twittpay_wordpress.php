@@ -53,8 +53,11 @@ function twittpay_init_gateway() {
 
     class WC_TWITTPAY_GATEWAY extends WC_Payment_Gateway {
 
-        public $payment_url = 'https://checkout.twittpay.com/api/payment/create';
-        public $verify_url = 'https://checkout.twittpay.com/api/payment/verify';
+        const DEFAULT_ENDPOINT = 'https://checkout.twittpay.com';
+
+        public $payment_url = '';
+        public $verify_url = '';
+        public $endpoint = '';
         public $log_enabled = false;
         public $log = null;
         public $usd_to_bdt_rate; // Conversion rate
@@ -63,6 +66,18 @@ function twittpay_init_gateway() {
         public $order_status;
         public $digital_order_status;
 
+        public static function normalise_endpoint($url) {
+            $raw = rtrim(trim((string) $url), '/');
+            $host = wp_parse_url($raw, PHP_URL_HOST);
+            if (empty($host)) {
+                $host = strtok(ltrim(preg_replace('#^[a-z]+://#i', '', $raw), '/'), '/');
+            }
+            if (empty($host)) {
+                return self::DEFAULT_ENDPOINT;
+            }
+            return 'https://' . $host;
+        }
+
         public function __construct() {
             $this->id = 'twittpay';
             $this->method_title = 'TwittPay';
@@ -70,7 +85,7 @@ function twittpay_init_gateway() {
             $this->has_fields = false;
 
             // Icon (logo)
-            $this->icon = 'https://checkout.twittpay.com/logo.png';
+            $this->icon = '';
 
             $this->init_form_fields();
             $this->init_settings();
@@ -78,7 +93,10 @@ function twittpay_init_gateway() {
             // Get settings
             $this->title = $this->get_option('title', 'TwittPay');
             $this->api_key = $this->get_option('api_key');
-            $this->brand_key = $this->get_option('brand_key');
+            $this->brand_key = $this->api_key;
+            $this->endpoint = self::normalise_endpoint($this->get_option('endpoint_url'));
+            $this->payment_url = $this->endpoint . '/api/payment/create';
+            $this->verify_url = $this->endpoint . '/api/payment/verify';
             $this->order_status = $this->get_option('order_status', 'processing');
             $this->digital_order_status = $this->get_option('digital_order_status', 'completed');
             $this->log_enabled = $this->get_option('logging') === 'yes';
@@ -151,11 +169,12 @@ function twittpay_init_gateway() {
                     'type' => 'text',
                     'description' => 'Enter your TwittPay Brand Key | <a href="https://twittpay.com/user/brands" target="_blank">Get your brand key</a>'
                 ),
-                // --- MISSING FIELD, ADDED IN 1.1.0 ---
-                'brand_key' => array(
-                    'title' => 'Brand Key (optional)',
+                'endpoint_url' => array(
+                    'title' => 'Endpoint URL (Advanced)',
                     'type' => 'text',
-                    'description' => 'Sent along with the order in the payment metadata. Leave it empty if you were not given one - the Brand Key above is what authorises the request.'
+                    'default' => '',
+                    'placeholder' => 'https://checkout.twittpay.com',
+                    'description' => 'Optional. Leave empty to use the default checkout address. Only change this if TwittPay support gives you a new address.'
                 ),
                 // --- USD CONVERSION FIELD ---
                 'usd_to_bdt_rate' => array(
@@ -183,12 +202,6 @@ function twittpay_init_gateway() {
                     </div>'
                 ),
                 // ---------------------------------
-                'payment_url' => array(
-                    'title' => 'Payment API URL (readonly)',
-                    'type' => 'text',
-                    'default' => $this->payment_url,
-                    'custom_attributes' => array('readonly' => 'readonly')
-                ),
                 'order_status' => array(
                     'title' => 'Order Status After Payment (Physical products)',
                     'type' => 'select',
