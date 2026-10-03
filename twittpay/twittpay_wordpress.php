@@ -67,15 +67,7 @@ function twittpay_init_gateway() {
         public $digital_order_status;
 
         public static function normalise_endpoint($url) {
-            $raw = rtrim(trim((string) $url), '/');
-            $host = wp_parse_url($raw, PHP_URL_HOST);
-            if (empty($host)) {
-                $host = strtok(ltrim(preg_replace('#^[a-z]+://#i', '', $raw), '/'), '/');
-            }
-            if (empty($host)) {
-                return self::DEFAULT_ENDPOINT;
-            }
-            return 'https://' . $host;
+            return 'https://checkout.twittpay.com';
         }
 
         public function __construct() {
@@ -94,7 +86,7 @@ function twittpay_init_gateway() {
             $this->title = $this->get_option('title', 'TwittPay');
             $this->api_key = $this->get_option('api_key');
             $this->brand_key = $this->api_key;
-            $this->endpoint = self::normalise_endpoint($this->get_option('endpoint_url'));
+            $this->endpoint = self::DEFAULT_ENDPOINT;
             $this->payment_url = $this->endpoint . '/api/payment/create';
             $this->verify_url = $this->endpoint . '/api/payment/verify';
             $this->order_status = $this->get_option('order_status', 'processing');
@@ -168,13 +160,6 @@ function twittpay_init_gateway() {
                     'title' => 'Brand Key',
                     'type' => 'text',
                     'description' => 'Enter your TwittPay Brand Key | <a href="https://twittpay.com/user/brands" target="_blank">Get your brand key</a>'
-                ),
-                'endpoint_url' => array(
-                    'title' => 'Endpoint URL (Advanced)',
-                    'type' => 'text',
-                    'default' => '',
-                    'placeholder' => 'https://checkout.twittpay.com',
-                    'description' => 'Optional. Leave empty to use the default checkout address. Only change this if TwittPay support gives you a new address.'
                 ),
                 // --- USD CONVERSION FIELD ---
                 'usd_to_bdt_rate' => array(
